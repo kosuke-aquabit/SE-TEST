@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SmartPlate Access Control Check</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      body {
+        max-width: 900px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.5;
+      }
+      textarea {
+        width: 100%;
+        min-height: 8rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      button {
+        padding: 0.6rem 1rem;
+        margin-right: 0.5rem;
+      }
+      pre {
+        white-space: pre-wrap;
+        border: 1px solid #7775;
+        padding: 1rem;
+        border-radius: 8px;
+      }
+      .row {
+        margin: 1rem 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>SmartPlate アクセス制御 検証ページ</h1>
+    <p>
+      仕様書 v1.4 の「標準パターン（ut + readtime）」を確認するための簡易ページです。<br />
+      ここに <code>hs</code> を貼り付けるか、<code>?hs=...</code> 付きで直接アクセスしてください。
+    </p>
+
+    <div class="row">
+      <label for="hs"><strong>hs パラメータ</strong></label><br />
+      <textarea id="hs" placeholder="例: IvI_GRaglDsy..."></textarea>
+    </div>
+
+    <div class="row">
+      <button id="verifyBtn">検証する</button>
+      <button id="clearSessionBtn" type="button">セッション初期化（utクリア）</button>
+    </div>
+
+    <h2>結果</h2>
+    <pre id="result">まだ実行していません。</pre>
+
+    <script>
+      const hsEl = document.getElementById("hs");
+      const resultEl = document.getElementById("result");
+      const verifyBtn = document.getElementById("verifyBtn");
+      const clearSessionBtn = document.getElementById("clearSessionBtn");
+
+      const qs = new URLSearchParams(window.location.search);
+      if (qs.get("hs")) hsEl.value = qs.get("hs");
+
+      async function verify() {
+        const hs = hsEl.value.trim();
+        if (!hs) {
+          resultEl.textContent = "hs が空です。";
+          return;
+        }
+        resultEl.textContent = "検証中...";
+        try {
+          const res = await fetch("/api/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ hs }),
+          });
+          const json = await res.json();
+          resultEl.textContent = JSON.stringify(
+            {
+              httpStatus: res.status,
+              ...json,
+            },
+            null,
+            2
+          );
+        } catch (err) {
+          resultEl.textContent = `通信エラー: ${err.message}`;
+        }
+      }
+
+      async function clearSession() {
+        resultEl.textContent = "セッション初期化中...";
+        try {
+          const res = await fetch("/api/session", { method: "DELETE" });
+          const json = await res.json();
+          resultEl.textContent = JSON.stringify(
+            {
+              httpStatus: res.status,
+              ...json,
+            },
+            null,
+            2
+          );
+        } catch (err) {
+          resultEl.textContent = `通信エラー: ${err.message}`;
+        }
+      }
+
+      verifyBtn.addEventListener("click", verify);
+      clearSessionBtn.addEventListener("click", clearSession);
+
+      if (qs.get("hs")) verify();
+    </script>
+  </body>
+</html>
