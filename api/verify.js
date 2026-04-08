@@ -77,6 +77,9 @@ function validate(params, sessionUserToken) {
   if (!params.atp || typeof params.atp !== "string") {
     return { ok: false, code: "INVALID_ATP", status: 400 };
   }
+  if (params.atp !== "N") {
+    return { ok: false, code: "NON_NFC_ACCESS", status: 403 };
+  }
 
   const now = Math.floor(Date.now() / 1000);
   const elapsed = now - params.readtime;
