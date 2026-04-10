@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ルーレット | SmartPlate デモ</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem 1rem;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        color: #fff;
+      }
+
+      /* ===== 認証エラー画面 ===== */
+      #error-screen {
+        display: none;
+        text-align: center;
+        max-width: 400px;
+      }
+      #error-screen .icon { font-size: 4rem; margin-bottom: 1rem; }
+      #error-screen h2 { font-size: 1.4rem; margin-bottom: 0.6rem; color: #ff6b6b; }
+      #error-screen p { color: rgba(255,255,255,0.6); font-size: 0.95rem; line-height: 1.6; }
+
+      /* ===== ローディング ===== */
+      #loading-screen {
+        text-align: center;
+      }
+      .spinner {
+        width: 48px; height: 48px;
+        border: 4px solid rgba(255,255,255,0.15);
+        border-top-color: #e2b96f;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 1rem;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      /* ===== ルーレット画面 ===== */
+      #roulette-screen {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        max-width: 420px;
+      }
+
+      .page-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-bottom: 0.3rem;
+        letter-spacing: 0.03em;
+      }
+      .page-sub {
+        font-size: 0.85rem;
+        color: rgba(255,255,255,0.5);
+        margin-bottom: 1.8rem;
+      }
+
+      /* ルーレット本体 */
+      .roulette-wrap {
+        position: relative;
+        width: 300px;
+        height: 300px;
+        margin-bottom: 1.8rem;
+      }
+      canvas#wheel {
+        width: 300px;
+        height: 300px;
+        border-radius: 50%;
+        box-shadow: 0 0 40px rgba(226,185,111,0.3);
+      }
+      /* 矢印（上部固定） */
+      .arrow {
+        position: absolute;
+        top: -18px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 14px solid transparent;
+        border-right: 14px solid transparent;
+        border-top: 28px solid #e2b96f;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        z-index: 10;
+      }
+      /* 中央ボタン */
+      .center-btn {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 64px; height: 64px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #e2b96f, #c9922a);
+        border: 4px solid #fff;
+        color: #1a1a2e;
+        font-weight: 800;
+        font-size: 0.75rem;
+        cursor: pointer;
+        z-index: 10;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        transition: transform 0.1s, opacity 0.2s;
+        letter-spacing: 0.02em;
+      }
+      .center-btn:hover:not(:disabled) { transform: translate(-50%, -50%) scale(1.05); }
+      .center-btn:active:not(:disabled) { transform: translate(-50%, -50%) scale(0.97); }
+      .center-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      /* 結果表示 */
+      #result-box {
+        width: 100%;
+        border-radius: 16px;
+        padding: 1.4rem 1rem;
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: 700;
+        min-height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 0.3rem;
+        transition: background 0.4s;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+      }
+      #result-box.win {
+        background: linear-gradient(135deg, rgba(226,185,111,0.25), rgba(201,146,42,0.15));
+        border-color: #e2b96f;
+      }
+      #result-box.lose {
+        background: rgba(255,255,255,0.05);
+        border-color: rgba(255,255,255,0.15);
+      }
+      #result-box .result-label {
+        font-size: 0.8rem;
+        font-weight: 400;
+        color: rgba(255,255,255,0.5);
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .footer {
+        margin-top: 2rem;
+        font-size: 0.75rem;
+        color: rgba(255,255,255,0.25);
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- ローディング -->
+    <div id="loading-screen">
+      <div class="spinner"></div>
+      <p style="color:rgba(255,255,255,0.5);font-size:0.9rem;">アクセスを確認中...</p>
+    </div>
+
+    <!-- エラー画面 -->
+    <div id="error-screen">
+      <div class="icon">🚫</div>
+      <h2 id="error-title">アクセスできません</h2>
+      <p id="error-msg">NFCタグを再度タップしてください。</p>
+    </div>
+
+    <!-- ルーレット画面 -->
+    <div id="roulette-screen">
+      <p class="page-title">🎰 ルーレット</p>
+      <p class="page-sub">ボタンを押して運試し！</p>
+
+      <div class="roulette-wrap">
+        <div class="arrow"></div>
+        <canvas id="wheel" width="300" height="300"></canvas>
+        <button class="center-btn" id="spin-btn">SPIN</button>
+      </div>
+
+      <div id="result-box">
+        <span class="result-label">結果</span>
+        <span id="result-text">ボタンを押してください</span>
+      </div>
+
+      <p class="footer">Powered by SmartPlate &amp; Aquabit Spirals</p>
+    </div>
+
+    <script>
+      // ===== ルーレット設定 =====
+      const SEGMENTS = [
+        { label: "ハズレ",     color: "#4a4a6a", win: false },
+        { label: "10%OFF",    color: "#c9922a", win: true  },
+        { label: "ハズレ",     color: "#4a4a6a", win: false },
+        { label: "ハズレ",     color: "#3a3a5a", win: false },
+        { label: "🎁 大当たり", color: "#b5451b", win: true  },
+        { label: "ハズレ",     color: "#4a4a6a", win: false },
+        { label: "5%OFF",     color: "#c9922a", win: true  },
+        { label: "ハズレ",     color: "#3a3a5a", win: false },
+      ];
+      const NUM = SEGMENTS.length;
+      const ARC = (2 * Math.PI) / NUM;
+
+      // ===== Canvas 描画 =====
+      const canvas = document.getElementById("wheel");
+      const ctx = canvas.getContext("2d");
+      let currentAngle = 0;
+
+      function drawWheel(angle) {
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const r  = cx - 4;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        SEGMENTS.forEach((seg, i) => {
+          const start = angle + i * ARC;
+          const end   = start + ARC;
+
+          // セクター
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.arc(cx, cy, r, start, end);
+          ctx.closePath();
+          ctx.fillStyle = seg.color;
+          ctx.fill();
+          ctx.strokeStyle = "rgba(255,255,255,0.15)";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // テキスト
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(start + ARC / 2);
+          ctx.textAlign = "right";
+          ctx.fillStyle = "#fff";
+          ctx.font = `bold ${seg.label.length > 4 ? 11 : 13}px sans-serif`;
+          ctx.shadowColor = "rgba(0,0,0,0.6)";
+          ctx.shadowBlur = 4;
+          ctx.fillText(seg.label, r - 10, 5);
+          ctx.restore();
+        });
+
+        // 中央円
+        ctx.beginPath();
+        ctx.arc(cx, cy, 28, 0, 2 * Math.PI);
+        ctx.fillStyle = "#1a1a2e";
+        ctx.fill();
+      }
+
+      drawWheel(currentAngle);
+
+      // ===== スピン処理 =====
+      let spinning = false;
+
+      document.getElementById("spin-btn").addEventListener("click", () => {
+        if (spinning) return;
+        spinning = true;
+        document.getElementById("spin-btn").disabled = true;
+
+        const resultBox  = document.getElementById("result-box");
+        const resultText = document.getElementById("result-text");
+        resultBox.className = "";
+        resultText.textContent = "回転中...";
+
+        // 当選セグメントをランダム決定
+        const targetIdx = Math.floor(Math.random() * NUM);
+        const seg = SEGMENTS[targetIdx];
+
+        // 矢印（上 = -π/2）が targetIdx セグメントの中央を指すように角度計算
+        // セグメント i の中央角度（wheel基準）= i * ARC + ARC/2
+        // 矢印が指す角度（wheel基準）= -currentAngle - π/2 (mod 2π)
+        // 必要な追加回転量を計算
+        const targetMidInWheel = targetIdx * ARC + ARC / 2;
+        const arrowInWheel = (- Math.PI / 2 - currentAngle % (2 * Math.PI) + 4 * Math.PI) % (2 * Math.PI);
+        let delta = (targetMidInWheel - arrowInWheel + 4 * Math.PI) % (2 * Math.PI);
+        // 最低5周回転させる
+        const totalRotation = 5 * 2 * Math.PI + delta;
+
+        const duration = 4000; // ms
+        const startAngle = currentAngle;
+        const startTime = performance.now();
+
+        function easeOut(t) {
+          return 1 - Math.pow(1 - t, 4);
+        }
+
+        function animate(now) {
+          const elapsed = now - startTime;
+          const t = Math.min(elapsed / duration, 1);
+          currentAngle = startAngle + totalRotation * easeOut(t);
+          drawWheel(currentAngle);
+
+          if (t < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            // 完了
+            spinning = false;
+            document.getElementById("spin-btn").disabled = false;
+            if (seg.win) {
+              resultBox.className = "win";
+              resultText.textContent = `🎉 ${seg.label}`;
+            } else {
+              resultBox.className = "lose";
+              resultText.textContent = `😢 ${seg.label}`;
+            }
+          }
+        }
+
+        requestAnimationFrame(animate);
+      });
+
+      // ===== アクセス制御（厳格パターン） =====
+      const loadingEl  = document.getElementById("loading-screen");
+      const errorEl    = document.getElementById("error-screen");
+      const rouletteEl = document.getElementById("roulette-screen");
+
+      const ERROR_MESSAGES = {
+        MISSING_HS:      { title: "無効なアクセス",       msg: "NFCタグを再度タップしてください。" },
+        DECRYPT_FAILED:  { title: "無効なアクセス",       msg: "パラメータの検証に失敗しました。" },
+        NON_NFC_ACCESS:  { title: "NFC経由でアクセスしてください", msg: "このページはNFCタグのタップでのみ利用できます。" },
+        EXPIRED:         { title: "有効期限切れ",         msg: "NFCタグを再度タップしてください。" },
+        ID_ALREADY_USED: { title: "このURLは使用済みです", msg: "同じURLは1回しか使用できません。\nNFCタグを再度タップしてください。" },
+        STORAGE_ERROR:   { title: "サーバーエラー",       msg: "しばらく時間をおいて再度お試しください。" },
+        MISSING_ENV:     { title: "設定エラー",           msg: "サーバーの設定に問題があります。" },
+      };
+
+      function showError(code) {
+        const info = ERROR_MESSAGES[code] || { title: "アクセスできません", msg: "NFCタグを再度タップしてください。" };
+        document.getElementById("error-title").textContent = info.title;
+        document.getElementById("error-msg").textContent   = info.msg;
+        loadingEl.style.display  = "none";
+        errorEl.style.display    = "block";
+        rouletteEl.style.display = "none";
+      }
+
+      function showRoulette() {
+        loadingEl.style.display  = "none";
+        errorEl.style.display    = "none";
+        rouletteEl.style.display = "flex";
+      }
+
+      async function checkAccess() {
+        const qs = new URLSearchParams(window.location.search);
+        const hs = qs.get("hs");
+
+        if (!hs) {
+          showError("MISSING_HS");
+          return;
+        }
+
+        try {
+          const res  = await fetch("/api/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ hs }),
+          });
+          const json = await res.json();
+
+          if (res.ok && json.ok) {
+            showRoulette();
+          } else {
+            showError(json.error || "UNKNOWN");
+          }
+        } catch (err) {
+          showError("STORAGE_ERROR");
+        }
+      }
+
+      checkAccess();
+    </script>
+  </body>
+</html>

@@ -3,103 +3,103 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SmartPlate 保護コンテンツ</title>
+    <title>SmartPlate デモ</title>
     <style>
       :root {
         color-scheme: light dark;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
-        max-width: 900px;
-        margin: 2rem auto;
-        padding: 0 1rem;
-        line-height: 1.5;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        color: #fff;
       }
-      .status {
-        margin-top: 1.5rem;
-        font-size: 2rem;
+      .card {
+        background: rgba(255,255,255,0.07);
+        border: 1px solid rgba(255,255,255,0.15);
+        border-radius: 20px;
+        padding: 2.5rem 2rem;
+        max-width: 480px;
+        width: 100%;
+        text-align: center;
+        backdrop-filter: blur(10px);
+      }
+      .logo {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+      }
+      h1 {
+        font-size: 1.6rem;
         font-weight: 700;
-        border: 1px solid #7775;
-        border-radius: 12px;
-        padding: 1.5rem;
+        margin-bottom: 0.5rem;
+        letter-spacing: 0.02em;
       }
-      .ok {
-        color: #0a7f2e;
-      }
-      .ng {
-        color: #c1121f;
-      }
-      .sub {
-        margin-top: 1rem;
-        color: #666;
+      .subtitle {
+        color: rgba(255,255,255,0.6);
         font-size: 0.95rem;
+        margin-bottom: 2rem;
+        line-height: 1.6;
       }
-      .content {
-        margin-top: 1.2rem;
-        border: 1px solid #7775;
+      .nfc-hint {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
         border-radius: 12px;
-        padding: 1rem 1.2rem;
-        display: none;
+        padding: 1.2rem;
+        margin-bottom: 2rem;
+        font-size: 0.9rem;
+        color: rgba(255,255,255,0.7);
+        line-height: 1.6;
+      }
+      .nfc-hint strong {
+        color: #e2b96f;
+        display: block;
+        margin-bottom: 0.3rem;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .btn {
+        display: inline-block;
+        background: linear-gradient(135deg, #e2b96f, #c9922a);
+        color: #1a1a2e;
+        font-weight: 700;
+        font-size: 1rem;
+        padding: 0.9rem 2rem;
+        border-radius: 50px;
+        text-decoration: none;
+        transition: opacity 0.2s, transform 0.1s;
+        border: none;
+        cursor: pointer;
+      }
+      .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+      .btn:active { transform: translateY(0); }
+      .footer {
+        margin-top: 2rem;
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.35);
       }
     </style>
   </head>
   <body>
-    <h1>SmartPlate 保護コンテンツページ</h1>
-    <p>
-      このページは URL の <code>hs</code> を自動検証し、NFC経由の有効アクセス時のみコンテンツを表示します。
-    </p>
-    <div id="status" class="status">判定中...</div>
-    <div id="sub" class="sub"></div>
-    <section id="secure-content" class="content">
-      <h2>適切なコンテンツ</h2>
-      <p>この内容は SmartPlate の検証を通過したアクセスでのみ表示されます。</p>
-    </section>
-
-    <script>
-      const statusEl = document.getElementById("status");
-      const subEl = document.getElementById("sub");
-      const contentEl = document.getElementById("secure-content");
-
-      const qs = new URLSearchParams(window.location.search);
-      const hs = qs.get("hs");
-
-      async function judge() {
-        if (!hs) {
-          statusEl.className = "status ng";
-          statusEl.textContent = "不正なアクセスです。";
-          subEl.textContent = "理由: hs パラメータがありません。";
-          contentEl.style.display = "none";
-          return;
-        }
-        statusEl.textContent = "判定中...";
-        subEl.textContent = "";
-        try {
-          const res = await fetch("/api/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ hs }),
-          });
-          const json = await res.json();
-          if (res.ok && json.ok) {
-            statusEl.className = "status ok";
-            statusEl.textContent = "セキュアなアクセスです。";
-            subEl.textContent = "検証結果: ACCESS_ALLOWED";
-            contentEl.style.display = "block";
-            return;
-          }
-          statusEl.className = "status ng";
-          statusEl.textContent = "不正なアクセスです。";
-          subEl.textContent = `検証結果: ${json.error || "DENIED"} (HTTP ${res.status})`;
-          contentEl.style.display = "none";
-        } catch (err) {
-          statusEl.className = "status ng";
-          statusEl.textContent = "不正なアクセスです。";
-          subEl.textContent = `通信エラー: ${err.message}`;
-          contentEl.style.display = "none";
-        }
-      }
-
-      judge();
-    </script>
+    <div class="card">
+      <div class="logo">🎰</div>
+      <h1>SmartPlate ルーレット</h1>
+      <p class="subtitle">
+        NFCタグをスマートフォンでタップすると、<br>
+        ルーレットに挑戦できます。
+      </p>
+      <div class="nfc-hint">
+        <strong>📱 ご利用方法</strong>
+        店頭に設置されたNFCタグにスマートフォンを近づけてください。<br>
+        ルーレットページへ自動的に移動します。
+      </div>
+      <p class="footer">Powered by SmartPlate &amp; Aquabit Spirals</p>
+    </div>
   </body>
 </html>
