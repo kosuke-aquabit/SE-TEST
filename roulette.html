@@ -208,9 +208,12 @@
       const ARC = (2 * Math.PI) / NUM;
 
       // ===== Canvas 描画 =====
+      // ホイールは「currentAngle だけ回転した状態」で描画する。
+      // セグメント i は角度 [currentAngle + i*ARC, currentAngle + (i+1)*ARC) を占める。
+      // 矢印は画面上部（-π/2）に固定。
       const canvas = document.getElementById("wheel");
       const ctx = canvas.getContext("2d");
-      let currentAngle = 0;
+      let currentAngle = 0; // ホイールの現在の回転角（ラジアン）
 
       function drawWheel(angle) {
         const cx = canvas.width / 2;
@@ -233,7 +236,7 @@
           ctx.lineWidth = 1.5;
           ctx.stroke();
 
-          // テキスト
+          // テキスト（セグメント中央に配置）
           ctx.save();
           ctx.translate(cx, cy);
           ctx.rotate(start + ARC / 2);
@@ -253,6 +256,14 @@
         ctx.fill();
       }
 
+      // 矢印（-π/2）が指しているセグメントインデックスを返す
+      function getPointedIndex(angle) {
+        const ARROW = -Math.PI / 2; // 矢印の絶対角度（上）
+        // ホイール上での矢印の相対角度
+        let rel = ((ARROW - angle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        return Math.floor(rel / ARC) % NUM;
+      }
+
       drawWheel(currentAngle);
 
       // ===== スピン処理 =====
@@ -270,24 +281,25 @@
 
         // 当選セグメントをランダム決定
         const targetIdx = Math.floor(Math.random() * NUM);
-        const seg = SEGMENTS[targetIdx];
 
-        // 矢印（上 = -π/2）が targetIdx セグメントの中央を指すように角度計算
-        // セグメント i の中央角度（wheel基準）= i * ARC + ARC/2
-        // 矢印が指す角度（wheel基準）= -currentAngle - π/2 (mod 2π)
-        // 必要な追加回転量を計算
-        const targetMidInWheel = targetIdx * ARC + ARC / 2;
-        const arrowInWheel = (- Math.PI / 2 - currentAngle % (2 * Math.PI) + 4 * Math.PI) % (2 * Math.PI);
-        let delta = (targetMidInWheel - arrowInWheel + 4 * Math.PI) % (2 * Math.PI);
-        // 最低5周回転させる
-        const totalRotation = 5 * 2 * Math.PI + delta;
+        // targetIdx セグメントの中央に矢印（-π/2）が来るように必要な回転量を計算
+        // セグメント i の中央はホイール基準で i*ARC + ARC/2
+        // 矢印がそこを指すには: angle + i*ARC + ARC/2 = -π/2 + 2πk
+        // → angle = -π/2 - i*ARC - ARC/2 + 2πk
+        // 現在の angle から最小の正の追加回転量を求める
+        const targetAngle = -Math.PI / 2 - targetIdx * ARC - ARC / 2;
+        // 現在角度から targetAngle までの差（正方向）
+        let diff = ((targetAngle - currentAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+        // 最低5周（30π）回転させる
+        const totalRotation = 5 * 2 * Math.PI + diff;
 
-        const duration = 4000; // ms
+        const duration = 4500; // ms
         const startAngle = currentAngle;
         const startTime = performance.now();
 
         function easeOut(t) {
-          return 1 - Math.pow(1 - t, 4);
+          // cubic ease-out
+          return 1 - Math.pow(1 - t, 3);
         }
 
         function animate(now) {
@@ -299,7 +311,9 @@
           if (t < 1) {
             requestAnimationFrame(animate);
           } else {
-            // 完了
+            // 停止後、矢印が指すセグメントを確定
+            const finalIdx = getPointedIndex(currentAngle);
+            const seg = SEGMENTS[finalIdx];
             spinning = false;
             document.getElementById("spin-btn").disabled = false;
             if (seg.win) {
